@@ -11,10 +11,10 @@ interface Props {
 }
 
 const FIELD_CLASS =
-  "w-full bg-[#112240] border border-[#1e293b] rounded-lg px-4 py-2.5 text-sm text-[#e6f1ff] placeholder-[#8892b0]/60 focus:outline-none focus:border-[#64ffda] transition-colors";
+  "w-full bg-white border border-[#e2e8f0] rounded-lg px-4 py-3 text-sm text-[#0f172a] placeholder-[#94a3b8] focus:outline-none focus:border-[#2563eb] focus:ring-2 focus:ring-[#2563eb]/10 transition-colors";
 
 const LABEL_CLASS =
-  "block text-[10px] uppercase font-bold text-[#64ffda] mb-1.5 tracking-widest";
+  "block text-[10px] uppercase font-bold text-[#64748b] mb-2 tracking-widest";
 
 export function RequestForm({ inventory, onClose, onSubmitted }: Props) {
   const [form, setForm] = useState<NewRequestFormData>({
@@ -85,21 +85,21 @@ export function RequestForm({ inventory, onClose, onSubmitted }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-[#0b112b] border border-[#1e293b] rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-[#1e293b] sticky top-0 bg-[#0b112b]">
-          <h2 className="text-[#e6f1ff] text-xl font-bold">New Purchase Request</h2>
+      <div className="bg-white border border-[#e2e8f0] rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-8 py-6 border-b border-[#f1f5f9] sticky top-0 bg-white">
+          <h2 className="text-[#0f172a] text-xl font-bold">New Purchase Request</h2>
           <button
             onClick={onClose}
-            className="text-[#8892b0] hover:text-[#e6f1ff] transition-colors"
+            className="text-[#94a3b8] hover:text-[#0f172a] transition-colors p-1 rounded-lg hover:bg-[#f8fafc]"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="px-8 py-7 space-y-6">
           {/* Optional: Link to Square catalog item */}
           {inventory.length > 0 && (
             <div>
@@ -120,7 +120,7 @@ export function RequestForm({ inventory, onClose, onSubmitted }: Props) {
                   </option>
                 ))}
               </select>
-              <p className="text-[#8892b0] text-xs mt-1.5">
+              <p className="text-[#94a3b8] text-xs mt-2">
                 Linking enables automatic Square inventory update when marked arrived.
               </p>
             </div>
@@ -178,7 +178,7 @@ export function RequestForm({ inventory, onClose, onSubmitted }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 text-rose-400 text-sm bg-rose-500/10 border border-rose-500/20 rounded-lg px-4 py-3">
+            <div className="flex items-center gap-2 text-red-700 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -189,14 +189,14 @@ export function RequestForm({ inventory, onClose, onSubmitted }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-[#112240] hover:bg-[#1e293b] text-[#8892b0] hover:text-[#e6f1ff] py-3 rounded-lg text-sm font-medium transition-all border border-[#1e293b]"
+              className="flex-1 bg-white hover:bg-[#f8fafc] text-[#64748b] hover:text-[#0f172a] py-3 rounded-lg text-sm font-medium transition-all border border-[#e2e8f0]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="flex-1 bg-[#64ffda] hover:bg-[#64ffda]/90 disabled:opacity-60 disabled:cursor-not-allowed text-[#0a192f] py-3 rounded-lg text-sm font-bold transition-all shadow-[0_4px_14px_0_rgba(100,255,218,0.39)]"
+              className="flex-1 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-60 disabled:cursor-not-allowed text-white py-3 rounded-lg text-sm font-bold transition-all shadow-[0_4px_14px_0_rgba(37,99,235,0.25)]"
             >
               {submitting ? "Submitting..." : "Submit Request"}
             </button>
