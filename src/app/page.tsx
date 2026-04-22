@@ -1,65 +1,199 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { Boxes, Package, ClipboardList, RefreshCw, Plus } from "lucide-react";
+import type { InventoryItem, PurchaseRequest } from "@/lib/types";
+import { InventoryPanel } from "@/components/inventory-panel";
+import { RequestsPanel } from "@/components/requests-panel";
+import { RequestForm } from "@/components/request-form";
+
+type Tab = "inventory" | "requests";
+
+export default function OpsTracker() {
+  const [activeTab, setActiveTab] = useState<Tab>("inventory");
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [requests, setRequests] = useState<PurchaseRequest[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(true);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+
+  const fetchInventory = useCallback(async () => {
+    setLoadingInventory(true);
+    try {
+      const res = await fetch("/api/inventory");
+      const data = await res.json();
+      setInventory(data.items ?? []);
+    } catch (e) {
+      console.error("Failed to load inventory", e);
+    } finally {
+      setLoadingInventory(false);
+    }
+  }, []);
+
+  const fetchRequests = useCallback(async () => {
+    setLoadingRequests(true);
+    try {
+      const res = await fetch("/api/requests");
+      const data = await res.json();
+      setRequests(data.requests ?? []);
+    } catch (e) {
+      console.error("Failed to load requests", e);
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, []);
+
+  // Initial data load
+  useEffect(() => {
+    fetchInventory();
+    fetchRequests();
+  }, [fetchInventory, fetchRequests]);
+
+  // Supabase realtime — all open tabs see request changes within ~100ms
+  useEffect(() => {
+    const channel = supabase
+      .channel("purchase_requests_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "purchase_requests" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setRequests((prev) => [payload.new as PurchaseRequest, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setRequests((prev) =>
+              prev.map((r) =>
+                r.id === (payload.new as PurchaseRequest).id
+                  ? (payload.new as PurchaseRequest)
+                  : r
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            setRequests((prev) =>
+              prev.filter((r) => r.id !== (payload.old as { id: string }).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+  const onOrderCount = requests.filter((r) => r.status === "on_order").length;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen bg-[#040a21] text-[#e6f1ff] p-4 md:p-8 lg:p-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between mb-10 gap-6">
+        <div className="flex items-center gap-3">
+          <Boxes className="w-9 h-9 text-[#64ffda] flex-shrink-0" />
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+              Ops <span className="text-[#64ffda]">Tracker</span>
+            </h1>
+            <p className="text-[#8892b0] text-sm mt-1">
+              Square inventory &amp; purchase request management
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Quick stats */}
+          {(pendingCount > 0 || onOrderCount > 0) && (
+            <div className="flex gap-2 text-xs">
+              {pendingCount > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                  {pendingCount} pending
+                </span>
+              )}
+              {onOrderCount > 0 && (
+                <span className="px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold">
+                  {onOrderCount} on order
+                </span>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              fetchInventory();
+              fetchRequests();
+            }}
+            className="flex items-center gap-2 bg-[#112240] hover:bg-[#1e293b] text-[#64ffda] px-4 py-2.5 rounded-lg border border-[#64ffda]/20 transition-all font-medium text-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+
+          <button
+            onClick={() => setShowRequestForm(true)}
+            className="flex items-center gap-2 bg-[#64ffda] hover:bg-[#64ffda]/90 text-[#0a192f] px-5 py-2.5 rounded-lg transition-all font-bold text-sm shadow-[0_4px_14px_0_rgba(100,255,218,0.39)]"
+          >
+            <Plus className="w-4 h-4" />
+            New Request
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 bg-[#0b112b] border border-[#1e293b] rounded-xl p-1 w-fit mb-8">
+        <button
+          onClick={() => setActiveTab("inventory")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === "inventory"
+              ? "bg-[#64ffda] text-[#0a192f]"
+              : "text-[#8892b0] hover:text-[#e6f1ff]"
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          Inventory
+        </button>
+        <button
+          onClick={() => setActiveTab("requests")}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+            activeTab === "requests"
+              ? "bg-[#64ffda] text-[#0a192f]"
+              : "text-[#8892b0] hover:text-[#e6f1ff]"
+          }`}
+        >
+          <ClipboardList className="w-4 h-4" />
+          Requests
+          {requests.length > 0 && (
+            <span
+              className={`ml-0.5 px-1.5 py-0.5 rounded-full text-xs font-bold ${
+                activeTab === "requests"
+                  ? "bg-[#0a192f]/20 text-[#0a192f]"
+                  : "bg-[#1e293b] text-[#8892b0]"
+              }`}
+            >
+              {requests.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "inventory" ? (
+        <InventoryPanel items={inventory} loading={loadingInventory} />
+      ) : (
+        <RequestsPanel requests={requests} loading={loadingRequests} />
+      )}
+
+      {/* New Request Modal */}
+      {showRequestForm && (
+        <RequestForm
+          inventory={inventory}
+          onClose={() => setShowRequestForm(false)}
+          onSubmitted={() => {
+            setShowRequestForm(false);
+            setActiveTab("requests");
+          }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+    </main>
   );
 }
